@@ -18,12 +18,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "../src/flstring.h"
+#include <fstream>
+#include <iomanip>
+#include <chrono>
 #include <stdarg.h>
-
+#include <filesystem>
 #include <FL/Fl.H>
 #include "Fl_Type.h"
 #include "alignment_panel.h"
+#include "../src/flstring.h"
+using namespace std;
 
 static FILE *code_file;
 static FILE *header_file;
@@ -151,7 +155,7 @@ int varused_test;
 int varused;
 
 // write an array of C characters (adds a null):
-void write_cstring(const char *s, int length) {
+void write_cstring(const char *s, size_t length) {
   if (varused_test) {
     varused = 1;
     return;
@@ -160,7 +164,7 @@ void write_cstring(const char *s, int length) {
   // longer than four lines, we only render a placeholder.
   if (write_sourceview && ((s==NULL) || (length>300))) {
     if (length>=0)
-      fprintf(code_file, "\" ... %d bytes of text... \"", length);
+      fprintf(code_file, "\" ... %zd bytes of text... \"", length);
     else
       fprintf(code_file, "\" ... text... \"");
     return;
@@ -353,9 +357,31 @@ static Fl_Type* write_code(Fl_Type* p) {
 }
 
 extern const char* header_file_name;
+extern const char* code_file_name;
 extern Fl_Class_Type *current_class;
 
-int write_code(const char *s, const char *t) {
+int write_code(const char *filename) {
+    const char* author = "Robin Rowe";
+    const char* license = "License: Open Source MIT";
+    std::error_code ec;
+    filesystem::path p = filesystem::canonical(filename,ec);
+    string p2 = p.string();
+    if(!write_cmake(p2.c_str(),author,license))
+    {   return 0;
+    }
+    if(!write_source(p2.c_str(),author,license))
+    {   return 0;
+    }
+    string cfile(filename);
+    cfile += code_file_name;
+    string hfile(filename);
+    hfile += header_file_name;
+    const char* s = cfile.c_str();
+    const char* t = hfile.c_str();
+    return write_code(s,t);
+}
+
+int write_code(const char *s,const char *t) {
   const char *filemode = "w";
   if (write_sourceview) 
     filemode = "wb";
@@ -609,6 +635,76 @@ void Fl_Type::write_code1() {
   write_c("// Code for %s\n", title());
 }
 void Fl_Type::write_code2() {}
+
+const char* cmaker = 
+"cmake_minimum_required(VERSION 3.8)\n"
+"set(CMAKE_CXX_STANDARD 17)\n"
+"set(CMAKE_CXX_STANDARD_REQUIRED ON)\n"
+"set(CMAKE_CXX_EXTENSIONS OFF)\n"
+"\n"
+"enable_testing()\n"
+"file(STRINGS sources.cmake SOURCES)\n"
+"add_library(${PROJECT_NAME}_lib ${SOURCES})\n"
+"link_libraries(${PROJECT_NAME}_lib)\n"
+"if(NOT WIN32 AND NOT APPLE)\n"
+"	link_libraries(rt pthread)\n"
+"endif(NOT WIN32 AND NOT APPLE)\n"
+"\n"
+"option(UNISTD \"Enable libunistd\" false)\n"
+"if(UNISTD)\n"
+"	set(LIBUNISTD_PATH /code/github/libunistd)\n"
+"	if(WIN32)\n"
+"		include_directories(${LIBUNISTD_PATH}/unistd)\n"
+"		link_directories(${LIBUNISTD_PATH}/build/unistd/Release)\n"
+"		link_libraries(libunistd)\n"
+"	endif(WIN32)\n"
+"endif(UNISTD)\n"
+"\n"
+"option(FLTK \"Enable FLTK\" true)\n"
+"if(FLTK)\n"
+"	set(FLTK_PATH /Code/fltk)\n"
+"	include_directories(${FLTK_PATH} ${FLTK_PATH}/fltk-build ${FLTK_PATH}/fltk-src/)\n"
+"	link_directories(${FLTK_PATH}/fltk-src/build/lib/Debug)\n"
+"	set(FLTK_LIBS\n"
+"		fltk_formsd\n"
+"		fltk_gld\n"
+"		fltk_imagesd\n"
+"		fltk_jpegd\n"
+"		fltk_pngd\n"
+"		fltk_zd\n"
+"		fltkd\n"
+"	)\n"
+"	link_libraries(${FLTK_LIBS} comctl32)\n"
+"endif(FLTK)\n";
+
+
+bool write_cmake(const char *project, const char *author,const char* license)
+{   ofstream os("CMakeLists.txt");
+    if(os.bad())
+    {   return false;
+    }
+    time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    os << "# " << project << "/CMakeLists.txt\n"
+    << "# Created by " << author << " " << std::put_time(localtime(&t),"%d-%m-%Y %H-%M-%S") << "\n"
+    << "# License: " << license << "\n"
+    << "project(" << project << ")\n"
+    << "message(\"Configuring ${PROJECT_NAME}...\")\n"
+    << endl
+    << cmaker << endl;
+    return os.good();
+}
+
+bool write_source(const char *project, const char *author,const char* license)
+{   ofstream os("sources.cmake");
+    if(os.bad())
+    {   return false;
+    }
+    os << project << code_file_name << endl;
+    os << project << header_file_name << endl;
+    return os.good();
+}
+
+//	os << "add_executable(${exe} ${exe}.cpp)" >> ${cmakelist}
 
 //
 // End of "$Id$".

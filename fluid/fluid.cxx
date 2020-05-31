@@ -696,7 +696,7 @@ int batch_mode = 0;		// if set (-c, -u) don't open display
 int header_file_set = 0;
 int code_file_set = 0;
 const char* header_file_name = ".h";
-const char* code_file_name = ".cxx";
+const char* code_file_name = ".cpp"; //".cxx";
 int i18n_type = 0;
 const char* i18n_include = "";
 const char* i18n_function = "";
@@ -726,7 +726,7 @@ void write_cb(Fl_Widget *, void *) {
     strlcpy(hname, header_file_name, sizeof(hname));
   }
   if (!batch_mode) goto_source_dir();
-  int x = write_code(cname,hname);
+  int x = write_code(filename);
   if (!batch_mode) leave_source_dir();
   strlcat(cname, " and ", sizeof(cname));
   strlcat(cname, hname, sizeof(cname));

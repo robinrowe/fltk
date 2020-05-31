@@ -584,17 +584,25 @@ public:
 
 extern Fl_Menu_Item window_type_menu[];
 
+struct Box
+{   int x;
+    int y;
+    int dx;
+    int dy;
+    Box()
+    {   x = y = dx = dy = 0;
+}   };
+
 class Fl_Window_Type : public Fl_Widget_Type {
 protected:
 
   Fl_Menu_Item* subtypes() {return window_type_menu;}
 
   friend class Overlay_Window;
-  int mx,my;		// mouse position during dragging
-  int x1,y1;		// initial position of selection box
-  int bx,by,br,bt;	// bounding box of selection before snapping
-  int sx,sy,sr,st;	// bounding box of selection after snapping to guides
-  int dx,dy;
+  Box mBox;		// mouse position during dragging
+  Box xBox;		// initial position of selection box
+  Box bBox;	// bounding box of selection before snapping
+  Box sBox;	// bounding box of selection after snapping to guides
   int drag;		// which parts of bbox are being moved
   int numselected;	// number of children selected
   enum {LEFT=1,RIGHT=2,BOTTOM=4,TOP=8,DRAG=16,BOX=32};
@@ -613,7 +621,9 @@ protected:
 
 public:
 
-  Fl_Window_Type() { drag = dx = dy = 0; sr_min_w = sr_min_h = sr_max_w = sr_max_h = 0; }
+  Fl_Window_Type() 
+  { drag = 0; 
+  }
   uchar modal, non_modal;
 
   Fl_Type *make();
@@ -641,7 +651,7 @@ public:
   void leave_live_mode();
   void copy_properties();
 
-  int sr_min_w, sr_min_h, sr_max_w, sr_max_h;
+  Box srBox;
 };
 
 class Fl_Widget_Class_Type : private Fl_Window_Type {
@@ -869,7 +879,10 @@ int has_toplevel_function(const char *rtype, const char *sig);
 void write_word(const char *);
 void write_string(const char *,...) __fl_attr((__format__ (__printf__, 1, 2)));
 int write_file(const char *, int selected_only = 0);
-int write_code(const char *cfile, const char *hfile);
+int write_code(const char *s,const char *t);
+int write_code(const char *project);
+bool write_cmake(const char *project, const char *author,const char* license);
+bool write_source(const char *project, const char *author,const char* license);
 int write_strings(const char *sfile);
 
 int write_declare(const char *, ...) __fl_attr((__format__ (__printf__, 1, 2)));
@@ -879,7 +892,7 @@ void write_c(const char*, ...) __fl_attr((__format__ (__printf__, 1, 2)));
 void vwrite_c(const char* format, va_list args);
 void write_h(const char*, ...) __fl_attr((__format__ (__printf__, 1, 2)));
 void write_cstring(const char *);
-void write_cstring(const char *,int length);
+void write_cstring(const char *,size_t length);
 void write_cdata(const char *,int length);
 void write_indent(int n);
 void write_open(int);
